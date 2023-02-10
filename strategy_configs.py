@@ -1,9 +1,12 @@
 import re, json
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import statsmodels.api as sm
+import seaborn as sb
 
 # query from binance_client.futures_ticker() on 2023-02-09, sort in quote volume DESC
-with open('FUTURE_PAIR_UNIVERSE.json') as f:
+with open('./FUTURE_PAIR_UNIVERSE.json') as f:
     read = json.load(f)
     FUTURE_PAIR_UNIVERSE = read['data']
     NOT_IN_15M_PAIRS = read['not_in_15m_pairs']
@@ -74,5 +77,22 @@ def get_index_logreturn_from_agg_price_df(aggPrice_df, indexAssetName_list:list,
         logreturn_df = pd.DataFrame(np.log((selected_df/selected_df.shift(1)).mean(axis=1) ), 
                                 columns= [index_name])
     return logreturn_df
+
+def get_alpha(index_return_df, asset_return_df):
+    result_df = pd.concat([index_return_df, asset_return_df], axis=1)
+    indexName = index_return_df.columns[0]
+    assetName = asset_return_df.columns[0]
+    result_df[assetName + '_alpha'] = result_df[assetName] - result_df[indexName]
+    return result_df
+def plot_alpha(index_return_df, aggPrice_df, assetName):
+    fig, ax = plt.subplots(figsize=(9, 5), dpi=110)
+    rose_return_df = get_single_logreturn_series(all_coins_price_agg_df, assetName)
+    get_alpha(index_return_df, rose_return_df).cumsum().plot(ax=plt.gca(), title='Alpha of '+assetName)
+def get_all_alpha(index_return_df, assetName_list):
+    result_df = pd.DataFrame()
+    for assetName in assetName_list:
+        asset_return_df = get_single_logreturn_series(all_coins_price_agg_df, assetName)
+        result_df = pd.concat([result_df, get_alpha(index_return_df, asset_return_df)[assetName + '_logreturn_alpha']], axis=1)
+    return result_df
 if __name__=='__main__':
     print(NOT_IN_15M_PAIRS)
